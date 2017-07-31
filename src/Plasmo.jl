@@ -35,6 +35,9 @@ addattribute!,rmattribute!,getattribute,hasattribute,
 #Model functions
 setmodel,resetmodel,is_nodevar,getmodel,hasmodel,getlinkconstraints,
 
+# Lagrange decomposition
+_lagrangesolve,
+
 #The JuMP Extension
 FlatGraphModel,create_flat_graph_model,
 getgraph,getnodevariables,getnodeobjective,getnodeconstraints,getnodedata,is_graphmodel,
@@ -55,6 +58,7 @@ include("graph.jl")
 include("model.jl")
 include("JuMPinterface.jl")
 include("macros.jl")
+include("lagrange.jl")
 
 #load PIPS-NLP if the library can be found
 if  !isempty(Libdl.find_library("libparpipsnlp"))
