@@ -58,7 +58,7 @@ include("graph.jl")
 include("model.jl")
 include("JuMPinterface.jl")
 include("macros.jl")
-include("lagrange.jl")
+#include("lagrange.jl")
 
 #load PIPS-NLP if the library can be found
 if  !isempty(Libdl.find_library("libparpipsnlp"))
