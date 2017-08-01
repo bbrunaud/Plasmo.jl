@@ -1,3 +1,5 @@
+using Logging
+
 # Parallel model solve function, returns an array of objective values with dimension equal to of elements in the collection for which pmap was applied
 @everywhere function psolve(m::JuMP.Model)
   JuMP.solve(m)
@@ -9,6 +11,7 @@ function _lagrangesolve(graph::PlasmoGraph)
 
   # 2. Generate model for heuristic
   mflat = create_flat_graph_model(graph)
+  mflat.solver = graph.solver
 
   # 2. Generate master problem
   ## Number of multipliers
@@ -22,7 +25,7 @@ function _lagrangesolve(graph::PlasmoGraph)
   ms = Model(solver=graph.solver)
   @variable(ms, η)
   @variable(ms, λ[1:nmult])
-  @objective(ms, Max, η)
+  @objective(ms, Min, η)
 
   # Equality constraint the multiplier is unbounded in sign. For <= or >= need to set the lower or upper bound at 0
 
@@ -38,38 +41,45 @@ function _lagrangesolve(graph::PlasmoGraph)
 
   # 4. Initialize
   # TODO Revise
-  MaxI = 50
+  MaxIter = 20
   ϵ = 0.124999999999
   λk = [0 for j in 1:nmult]
-  Z_ub = +1000
-  Z_lb = -1000
+  UB = +1000
+  LB = -1000
   α = 2
   i = 0
 
   # 5. Solve subproblems
   # TODO Begin iterations here
+  for iter in 1:MaxIter
   spobjs = pmap(psolve,SP)
   Zk = sum(spobjs)
+  debug("Zk = $Zk")
 
   # 7. Solve Lagrange heuristic
-  for j in 1:mflat.numCols
-    if mflat.colCat[j] == :Bin || mflat.colCat[j] == :Int
-      mflat.colUpper = mflat.colVal
-      mflat.colLower = mflat.colVal
-    end
+  mflat.colVal = vcat([SP[j].colVal for j in keys(getnodes(graph))]...)
+  println("mf val = $(mflat.colVal)")
+  println("S1 val = $(SP[1].colVal)")
+  for j in 1:2
+    mflat.colUpper[j] = mflat.colVal[j]
+    mflat.colLower[j] = mflat.colVal[j]
   end
   solve(mflat)
   Hk = getobjectivevalue(mflat)
+  # While mflat switches from Max to Min
+  Hk *= sense==:Min ? 1 : -1
+  debug("Hk = $Hk")
 
   # 8. Update bounds and check bounds convergence
   # Minimization problem
+  debug("sense = $sense")
   if sense == :Min
     LB = max(Zk,LB)
     UB = min(Hk,UB)
     graph.objVal = UB
   else
-    LB = max(Zk,LB)
-    UB = min(Hk,UB)
+    LB = max(Hk,LB)
+    UB = min(Zk,UB)
     graph.objVal = LB
   end
   #UB - LB < ϵ &&  break
@@ -79,30 +89,36 @@ function _lagrangesolve(graph::PlasmoGraph)
   # add cut
   lval = [getvalue(links[j].terms) for j in 1:nmult]
   @constraint(ms, η >= Zk + sum(λ[j]*lval[j] for j in 1:nmult))
+  debug("Last cut = $(ms.linconstr[end])")
   # update multiplier bounds (Bundle method)
 
   step = α*(UB-LB)/norm(lval)^2
+  debug("Step = $step")
   for j in 1:nmult
     setupperbound(λ[j], λprev[j] + step*abs(getvalue(links[j].terms)))
     setlowerbound(λ[j], λprev[j] - step*abs(getvalue(links[j].terms)))
   end
   solve(ms)
   λk = getvalue(λ)
+  debug("λ = $λk")
   # sqrt(sum( (λ-λprev).^2 )) < ϵ && break
 
   # 10. Update objectives
   # Restore initial objective
   for (j,sp) in enumerate(SP)
-    sp.obj = SPObjective[j]
+    sp.obj = SPObjectives[j]
   end
   # add dualized part
   for l in 1:nmult
-    for j in 1:lenght(l.terms.vars)
+    for j in 1:length(links[l].terms.vars)
       var = links[l].terms.vars[j]
       coeff = links[l].terms.coeffs[j]
       var.m.obj += λk[l]*coeff*var
     end
   end
-
-
+  debug("SP1 objective = $(SP[1].obj)")
+  debug("SP2 objective = $(SP[2].obj)")
+  debug("UB = $UB")
+  debug("LB = $LB")
+  end
 end
