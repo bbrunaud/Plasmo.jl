@@ -10,10 +10,11 @@ function setmodel!(nodeoredge::NodeOrEdge,m::AbstractModel)
     #update link constraints after setting a model
     #_updatelinks(m,nodeoredge)
 
-    !_assignedtonode(m) || error("the model is already asigned to another node or edge")
-    @assert !_assignedtonode(m)  #make sure the model isn't already assigned to a different node
+    !(_assignedtonode(m) && getmodel(nodeoredge) == m) || error("the model is already asigned to another node or edge")
+    #@assert !_assignedtonode(m)  #make sure the model isn't already assigned to a different node
 
-    if hasmodel(nodeoredge)  #if it already had a model, delete all the link constraints corresponding to that model
+    #If it already had a model, delete all the link constraints corresponding to that model
+    if hasmodel(nodeoredge)
         for (graph,constraints) in getlinkconstraints(nodeoredge)
             local_link_cons = constraints
             graph_links = getlinkconstraints(graph)
@@ -24,9 +25,9 @@ function setmodel!(nodeoredge::NodeOrEdge,m::AbstractModel)
     nodeoredge.attributes[:model] = m
     m.ext[:node] = nodeoredge
     #set variable names
-    for i = 1:MathProgBase.numvar(m)
-        _setvarname(nodeoredge,Variable(m,i))
-    end
+    # for i = 1:MathProgBase.numvar(m)
+    #     _setvarname(nodeoredge,Variable(m,i))
+    # end
 end
 getnode(m::AbstractModel) = m.ext[:node]
 getnode(var::Variable) = var.m.ext[:node]
@@ -39,7 +40,7 @@ getnode(var::Variable) = var.m.ext[:node]
 
 
 _assignedtonode(m::AbstractModel) = haskey(m.ext,:node) #check whether a model is assigned to a node
-_setvarname(nodeoredge::NodeOrEdge,v::Variable) = JuMP.setname(v,string(nodeoredge.label)*"["*getname(v)*"]") #set a variable name when its model gets assigned to a node or edge
+#_setvarname(nodeoredge::NodeOrEdge,v::Variable) = JuMP.setname(v,string(nodeoredge.label)*"["*getname(v)*"]") #set a variable name when its model gets assigned to a node or edge
 
 #TODO
 #make it possible to reset a model on a node or edge
@@ -56,7 +57,8 @@ const resetmodel = resetmodel!
 #removemodel!(nodeoredge::NodeOrEdge) = nodeoredge.attributes[:model] = nothing  #need to update link constraints
 getmodel(nodeoredge::NodeOrEdge) = nodeoredge.attributes[:model]
 hasmodel(nodeoredge::NodeOrEdge) = haskey(nodeoredge.attributes,:model)
-getindex(nodeoredge::NodeOrEdge,s::Symbol) = getmodel(nodeoredge)[s]  #get a node or edge variable
+
+#getindex(nodeoredge::NodeOrEdge,s::Symbol) = getmodel(nodeoredge)[s]  #get a node or edge variable  THIS GOT MOVED TO JuMP INTERFACE
 
 #Might make more sense to store all link constraints in one place, and use functions to get the right ones
 getlinkconstraints(nodeoredge::NodeOrEdge) = nodeoredge.attributes[:LinkData].linkconstraintmap

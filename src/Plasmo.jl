@@ -33,7 +33,7 @@ getnode,getedge,getnodeoredge,getnodesandedges,is_connected,getnodes,getedges,co
 addattribute!,rmattribute!,getattribute,hasattribute,
 
 #Model functions
-setmodel,resetmodel,is_nodevar,getmodel,hasmodel,getlinkconstraints,
+setmodel,resetmodel,is_nodevar,getmodel,hasmodel,getlinkconstraints,getgraphobjectivevalue,getobjevtivevalue,
 
 # Lagrange decomposition
 _lagrangesolve,

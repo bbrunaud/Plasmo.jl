@@ -1,7 +1,7 @@
 import LightGraphs:AbstractGraph,Graph,DiGraph,add_vertex!,add_edge!,nv,ne,vertices,edges,in_neighbors,out_neighbors,in_edges,out_edges,src,dst,degree
 import Base:show,print,string,getindex,copy
 import LightGraphs
-import JuMP:Model,UnsetSolver
+import JuMP:Model,UnsetSolver,setsolver,getobjectivevalue
 import MathProgBase.SolverInterface:AbstractMathProgSolver
 
 ##############################################################################
@@ -20,6 +20,7 @@ type PlasmoGraph <: AbstractPlasmoGraph
     #nodemap::Dict{Symbol,AbstractNode}         #I'm thinking about also including node and edge maps to reference nodes and edges by a symbol
     #edgemap::Dict{Symbol,AbstractNode}
     solver::AbstractMathProgSolver #for solve(graph)
+    objVal::Number
 end
 
 """
@@ -27,7 +28,7 @@ PlasmoGraph()
 
 Creates an empty PlasmoGraph
 """
-PlasmoGraph() = PlasmoGraph(DiGraph(),gensym(),0,AbstractGraph[],Dict(:LinkData => GraphLinkData()),Dict{Int,AbstractNode}(),Dict{LightGraphs.Edge,AbstractEdge}(),UnsetSolver())
+PlasmoGraph() = PlasmoGraph(DiGraph(),gensym(),0,AbstractGraph[],Dict(:LinkData => GraphLinkData()),Dict{Int,AbstractNode}(),Dict{LightGraphs.Edge,AbstractEdge}(),UnsetSolver(),NaN)
 const GraphModel = PlasmoGraph
 
 """
@@ -36,7 +37,7 @@ PlasmoGraph(::AbstractGraph)
 Creates a PlasmoGraph given a LightGraph object
 """
 function PlasmoGraph(g::AbstractGraph)  #build a graph from a LightGraph
-    pgraph = PlasmoGraph(g,gensym(),0,AbstractGraph[],Dict(:LinkData => GraphLinkData()),Dict{Int,AbstractNode}(),Dict{LightGraphs.Edge,AbstractEdge}(),UnsetSolver())
+    pgraph = PlasmoGraph(g,gensym(),0,AbstractGraph[],Dict(:LinkData => GraphLinkData()),Dict{Int,AbstractNode}(),Dict{LightGraphs.Edge,AbstractEdge}(),UnsetSolver(),NaN)
     for vertex in vertices(g)
         pgraph.nodes[vertex] = PlasmoNode(Dict(pgraph => vertex),Symbol("node"*string(vertex)),Dict())
     end
@@ -54,6 +55,8 @@ end
 getindex(graph::PlasmoGraph) = graph.index
 
 setsolver(graph::PlasmoGraph,solver::AbstractMathProgSolver) = graph.solver = solver
+_setobjectivevalue(graph::PlasmoGraph,num::Number) = graph.objVal = num
+getgraphobjectivevalue(graph::PlasmoGraph) = graph.objVal
 ##############################################################################
 # Nodes
 ##############################################################################
@@ -66,12 +69,12 @@ type PlasmoNode <: AbstractNode
 end
 
 # Node constructors
-PlasmoNode() = PlasmoNode(Dict{PlasmoGraph,Int}(), Symbol("node"),Dict{Any,Any}(:Model => Model(),:LinkData => NodeLinkData()))
+PlasmoNode() = PlasmoNode(Dict{PlasmoGraph,Int}(), Symbol("node"),Dict{Any,Any}(:model => Model(),:LinkData => NodeLinkData()))
 function PlasmoNode(g::PlasmoGraph)
     add_vertex!(g.graph)
     i = nv(g.graph)
     label = Symbol("node"*string(i))
-    node = PlasmoNode(Dict(g => i),label,Dict(:Model => Model(),:LinkData => NodeLinkData()))
+    node = PlasmoNode(Dict(g => i),label,Dict(:model => Model(),:LinkData => NodeLinkData()))
     g.nodes[i] = node
     return node
 end
@@ -99,11 +102,11 @@ type PlasmoEdge <: AbstractEdge
     attributes::Dict
 end
 #Edge constructors
-PlasmoEdge() = PlasmoEdge(Dict{PlasmoGraph,LightGraphs.Edge}(), Symbol("edge"),Dict{Any,Any}(:Model => Model(),:LinkData => NodeLinkData()))
+PlasmoEdge() = PlasmoEdge(Dict{PlasmoGraph,LightGraphs.Edge}(), Symbol("edge"),Dict{Any,Any}(:model => Model(),:LinkData => NodeLinkData()))
 function PlasmoEdge(g::PlasmoGraph,edge::LightGraphs.Edge)
     add_edge!(g.graph,edge)
     label = Symbol("edge"*string(edge))
-    pedge = PlasmoEdge(Dict(g => edge),label,Dict(:Model => Model(),:LinkData => NodeLinkData()))
+    pedge = PlasmoEdge(Dict(g => edge),label,Dict(:model => Model(),:LinkData => NodeLinkData()))
     g.edges[edge] = pedge
     return pedge
 end
