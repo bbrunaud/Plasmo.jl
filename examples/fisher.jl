@@ -5,14 +5,14 @@ using Gurobi
 graph = PlasmoGraph()
 graph.solver = GurobiSolver()
 
-m1 = Model()
+m1 = Model(solver=GurobiSolver())
 @variable(m1,x[1:2], Bin)
 @constraint(m1, x[1] + x[2] <= 1)
 @objective(m1, Max, 16x[1] + 10x[2])
 n1 = add_node!(graph)
 setmodel(n1,m1)
 
-m2 = Model()
+m2 = Model(solver=GurobiSolver())
 @variable(m2, x[1:2], Bin)
 @variable(m2, y[3:4], Bin)
 @constraint(m2, sum(y[i] for i in 3:4) <= 1)
