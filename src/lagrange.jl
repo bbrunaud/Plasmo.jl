@@ -6,7 +6,7 @@ using Logging
   return JuMP.getobjectivevalue(m)
 end
 
-function _lagrangesolve(graph::PlasmoGraph)
+function _lagrangesolve(graph::PlasmoGraph;update_method=:subgradient)
   # 1. Check for dynamic structure. If not error
 
   # 2. Generate model for heuristic
@@ -82,24 +82,35 @@ function _lagrangesolve(graph::PlasmoGraph)
     UB = min(Zk,UB)
     graph.objVal = LB
   end
-  #UB - LB < ϵ &&  break
+  UB - LB < ϵ &&  break
 
   # 9. Update λ
   λprev = λk
-  # add cut
-  lval = [getvalue(links[j].terms) for j in 1:nmult]
-  @constraint(ms, η >= Zk + sum(λ[j]*lval[j] for j in 1:nmult))
-  debug("Last cut = $(ms.linconstr[end])")
-  # update multiplier bounds (Bundle method)
 
+  # 9. Multipliers Update
+  lval = [getvalue(links[j].terms) for j in 1:nmult]
   step = α*(UB-LB)/norm(lval)^2
   debug("Step = $step")
-  for j in 1:nmult
-    setupperbound(λ[j], λprev[j] + step*abs(getvalue(links[j].terms)))
-    setlowerbound(λ[j], λprev[j] - step*abs(getvalue(links[j].terms)))
+
+  # update multiplier bounds (Bundle method)
+  if update_method == :bundle
+    for j in 1:nmult
+      setupperbound(λ[j], λprev[j] + step*abs(getvalue(links[j].terms)))
+      setlowerbound(λ[j], λprev[j] - step*abs(getvalue(links[j].terms)))
+    end
   end
-  solve(ms)
-  λk = getvalue(λ)
+  # Cutting planes or Bundle
+  if update_method in (:cuttingplanes,:bundle)
+    @constraint(ms, η >= Zk + sum(λ[j]*lval[j] for j in 1:nmult))
+    debug("Last cut = $(ms.linconstr[end])")
+    solve(ms)
+    λk = getvalue(λ)
+  end
+  # Subgradient
+  if update_method == :subgradient
+    λk = λprev - step*lval
+  end
+
   debug("λ = $λk")
   # sqrt(sum( (λ-λprev).^2 )) < ϵ && break
 
