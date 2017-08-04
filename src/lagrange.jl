@@ -6,7 +6,7 @@ using Logging
   return JuMP.getobjectivevalue(m)
 end
 
-function _lagrangesolve(graph::PlasmoGraph;update_method=:subgradient)
+function lagrangesolve(graph::PlasmoGraph;update_method=:subgradient)
   # 1. Check for dynamic structure. If not error
 
   # 2. Generate model for heuristic

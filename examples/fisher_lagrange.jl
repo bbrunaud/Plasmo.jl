@@ -3,4 +3,4 @@ include("../src/lagrange.jl")
 
 Logging.configure(level=DEBUG)
 
-_lagrangesolve(graph,update_method=:bundle)
+lagrangesolve(graph,update_method=:bundle)
